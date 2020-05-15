@@ -1,0 +1,52 @@
+---
+- name: Install prerequisites
+  hosts: nodes
+  gather_facts: true
+  tags:
+  - never
+  - prerequisites
+  tasks:
+  - name: install netcat
+    become: yes
+    package:
+      name: nmap-ncat
+      state: present
+
+- name: Add dummy hosts for results
+  hosts: localhost
+  tasks:
+  - name: Add fake failed test host
+    add_host:
+      name: failed_checks
+  - name: Add fake successful tests host
+    add_host:
+      name: successful_checks
+
+- name: Test flow between nodes
+  hosts: nodes
+  serial: 1
+  tasks:
+  - name: test port 4789
+    include_tasks:
+      file: tasks/test_udp_port.yml
+    vars:
+      test_port: 4789
+      test_protocol: udp
+
+  - name: test port 4789
+    include_tasks:
+      file: tasks/test_udp_port.yml
+    vars:
+      test_port: 4789
+      test_protocol: tcp
+
+- name: Display results
+  hosts: localhost
+  tasks:
+  - name: Successfull checks
+    debug:
+      var: hostvars.successful_checks.check_result
+  - name: Failed checks
+    debug:
+      var: hostvars.failed_checks.check_result
+    failed_when: hostvars.failed_checks.check_result is defined

@@ -1,0 +1,47 @@
+---
+- name: Listen on port {{ test_port }}/{{ test_protocol }}
+  become: yes
+  command: nc {{ '--udp' if test_protocol == 'udp' else '' }} --listen {{ test_port }}
+  async: 30
+  poll: 0
+  register: nc_listen
+  changed_when: false
+  loop: "{{ ansible_play_hosts_all }}"
+  delegate_to: "{{ item }}"
+  when: item != inventory_hostname
+
+- name: Try communication from {{ inventory_hostname }} on {{ test_port }}/{{ test_protocol }}
+  shell: echo {{ inventory_hostname }} | nc {{ '--udp' if test_protocol == 'udp' else '' }} {{ item }} {{ test_port }}
+  loop: "{{ ansible_play_hosts_all }}"
+  when: item != inventory_hostname
+
+- name: Kill listener
+  become: yes
+  command: pkill -9 'nc'
+  loop: "{{ ansible_play_hosts_all }}"
+  delegate_to: "{{ item }}"
+  register: kill_listeners
+  when:
+  - item != inventory_hostname
+  changed_when: false
+  failed_when: kill_listeners.rc > 1
+
+- name: Wait for listener to be stopped
+  become: yes
+  async_status:
+    jid: "{{ item['ansible_job_id'] }}"
+  register: listen_status
+  #until: listen_status.finished
+  loop: "{{ nc_listen.results }}"
+  delegate_to: "{{ item.item }}"
+  when: item.skipped is not defined or not item.skipped
+  failed_when: false
+  changed_when: false
+
+- name: Parse results
+  set_fact:
+    check_result: "{{ check_result | default([]) + [ inventory_hostname + ' => '+ item.item.item + ' on ' + test_port | string + '/' + test_protocol ] }}"
+  loop: "{{ listen_status.results }}"
+  when: item.skipped is not defined
+  delegate_to: "{{ 'successful_checks' if item.stdout == inventory_hostname else 'failed_checks' }}"
+  delegate_facts: true
