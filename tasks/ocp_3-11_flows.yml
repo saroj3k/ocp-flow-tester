@@ -1,0 +1,109 @@
+---
+- name: Test flow between nodes
+  hosts: nodes
+  serial: 1
+  tasks:
+  - name: SDN 4789
+    include_tasks: test_port.yml
+    vars:
+      test_port: 4789
+      test_protocol: udp
+      destination_hosts: "{{ ansible_play_hosts_all }}"
+
+- name: Test nodes to masters flows
+  hosts: nodes:!masters
+  serial: 1
+  tasks:
+  - name: Api port
+    include_tasks: test_port.yml
+    vars:
+      test_port: "{{ openshift_master_api_port | default('8443') }}"
+      test_protocol: tcp
+      destination_hosts: "{{ groups['masters'] }}"
+  - name: Dnsmasq port
+    include_tasks: test_port.yml
+    vars:
+      test_port: "{{ openshift_dnsmasq_port | default('8053') }}"
+      test_protocol: tcp
+      destination_hosts: "{{ groups['masters'] }}"
+
+- name: Test masters ports
+  hosts: masters
+  serial: 1
+  tasks:
+  - name: Master proxies to nodes kubelet
+    include_tasks: test_port.yml
+    vars:
+      test_port: 10250
+      test_protocol: tcp
+      destination_hosts: "{{ groups['nodes'] }}"
+
+  - name: Crio port commands execution
+    include_tasks: test_port.yml
+    vars:
+      test_port: 10010
+      test_protocol: tcp
+      destination_hosts: "{{ groups['nodes'] }}"
+    when: openshift_use_crio | default(false) | bool
+
+  - name: Internal nfs udp
+    include_tasks: test_port.yml
+    vars:
+      test_port: 2049
+      test_protocol: udp
+      destination_hosts: "{{ groups['masters'] }}"
+    when: groups['nfs'] is defined
+
+  - name: Internal nfs tcp
+    include_tasks: test_port.yml
+    vars:
+      test_port: 2049
+      test_protocol: tcp
+      destination_hosts: "{{ groups['masters'] }}"
+    when: groups['nfs'] is defined
+
+- name: Test etcd ports
+  hosts: etcd
+  serial: 1
+  tasks:
+  - name: Etcd standalone state update
+    include_tasks: test_port.yml
+    vars:
+      test_port: 2379
+      test_protocol: tcp
+      destination_hosts: "{{ groups['etcd'] }}"
+
+  - name: Etcd chorum
+    include_tasks: test_port.yml
+    vars:
+      test_port: 2380
+      test_protocol: tcp
+      destination_hosts: "{{ groups['etcd'] }}"
+
+- name: External access
+  hosts: flowexternal
+  serial: 1
+  tasks:
+  - name: HA proxy status page on native mode
+    include_tasks: test_port.yml
+    vars:
+      test_port: 9000
+      test_protocol: tcp
+      destination_hosts: "{{ groups['lb'] }}"
+    when:
+    - groups['lb'] is defined
+    - groups['lb'] | length > 0
+
+  - name: Api access
+    include_tasks: test_port.yml
+    vars:
+      test_port: "{{ openshift_master_api_port | default('8443') }}"
+      test_protocol: tcp
+      destination_hosts: "{{ groups['masters'] }}"
+
+  - name: Kubelet
+    include_tasks: test_port.yml
+    vars:
+      test_port: 10250
+      test_protocol: tcp
+      destination_hosts: "{{ groups['masters'] }}"

@@ -1,6 +1,8 @@
 ---
 - name: Install prerequisites
-  hosts: nodes
+  hosts:
+  - nodes
+  - localhost
   gather_facts: true
   tags:
   - never
@@ -12,41 +14,15 @@
       name: nmap-ncat
       state: present
 
-- name: Add dummy hosts for results
-  hosts: localhost
-  tasks:
-  - name: Add fake failed test host
-    add_host:
-      name: failed_checks
-  - name: Add fake successful tests host
-    add_host:
-      name: successful_checks
-
-- name: Test flow between nodes
-  hosts: nodes
-  serial: 1
-  tasks:
-  - name: test port 4789
-    include_tasks:
-      file: tasks/test_udp_port.yml
-    vars:
-      test_port: 4789
-      test_protocol: udp
-
-  - name: test port 4789
-    include_tasks:
-      file: tasks/test_udp_port.yml
-    vars:
-      test_port: 4789
-      test_protocol: tcp
+- import_playbook: tasks/ocp_3-11_flows.yml
 
 - name: Display results
   hosts: localhost
   tasks:
   - name: Successfull checks
     debug:
-      var: hostvars.successful_checks.check_result
+      msg: "{{ query('flattened',query('dict',hostvars) | selectattr('value.flow_checks', 'defined') | map(attribute='value.flow_checks') | list) | selectattr('status') | map(attribute='rule') | list }}"
   - name: Failed checks
     debug:
-      var: hostvars.failed_checks.check_result
-    failed_when: hostvars.failed_checks.check_result is defined
+      msg: "{{ query('flattened',query('dict',hostvars) | selectattr('value.flow_checks', 'defined') | map(attribute='value.flow_checks') | list) | rejectattr('status') | map(attribute='rule') | list }}"
+    failed_when: query('flattened',query('dict',hostvars) | selectattr('value.flow_checks', 'defined') | map(attribute='value.flow_checks') | list) | rejectattr('status') | map(attribute='rule') | list | length > 0
