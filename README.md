@@ -2,6 +2,8 @@
 
 This playbook is indended to test OCP 3.11 flow matrix according to [OCP 3.11 documentation](https://docs.openshift.com/container-platform/3.11/install/prerequisites.html).
 
+To use this playbook the current directory must be /tests directory.
+
 ## Configuration
 ### Installing requirements
 
@@ -25,8 +27,7 @@ Openshift must be shutted down to use this script.
 
 ### without ocp fw rules
 
-In order to test machine connectivity, OCP and iptables must be shutted down.
- * stop iptables run following command: `ansible -b -i {/path/to/your/inventory} -m service -a "name=iptables state=stopped" nodes`
+In order to test machine connectivity, OCP and iptables must be shutted down by running following command: `ansible -b -i {/path/to/your/inventory} -m service -a "name=iptables state=stopped" nodes`
 
 /!\ If you used firewalld, replace iptables with it /!\
 
@@ -34,7 +35,7 @@ When ipdables is disabled, you can follow the 'Launch checks' section.
 
 ### Launch checks
 
-To launch the playbook, checkout it on the machine you used to run openshift-ansible playbook and run the following command: `ansible-playboot -i {/path/to/your/inventory} check_flows.yml`
+To launch the playbook, checkout it on the machine you used to run openshift-ansible playbook and run the following command: `ansible-playbook -i {/path/to/your/inventory} check_flows.yml`
 
 Following variables can be passed to the playbook to fit your needs:
  * openshift_master_api_port: api port (default 8443)

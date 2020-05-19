@@ -8,13 +8,11 @@
   - never
   - prerequisites
   tasks:
-  - name: install netcat
-    become: yes
-    package:
-      name: nmap-ncat
-      state: present
+  - import_role:
+      name: ocp-flow-tester
+      tasks_from: install_prerequisites.yml
 
-- import_playbook: tasks/ocp_3-11_flows.yml
+- import_playbook: test_openshift_flow_matrix.yml
 
 - name: Display results
   hosts: localhost

@@ -1,0 +1,6 @@
+---
+- name: Install netcat
+  become: yes
+  package:
+    name: nmap-ncat
+    state: present

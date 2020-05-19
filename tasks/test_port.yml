@@ -1,4 +1,15 @@
 ---
+- name: Ensure port is not in use on destination host
+  any_errors_fatal: yes
+  become: yes
+  command: ss -lntu
+  register: port_status
+  loop: "{{ destination_hosts }}"
+  failed_when: "':' + test_port | string in port_status.stdout"
+  changed_when: no
+  when:
+  - item != inventory_hostname
+
 - name: Listen on port {{ test_port }}/{{ test_protocol }} on destination hosts
   become: yes
   command: nc {{ '--udp' if test_protocol == 'udp' else '' }} --listen {{ test_port }}
