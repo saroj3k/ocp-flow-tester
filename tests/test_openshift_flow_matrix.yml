@@ -3,6 +3,11 @@
   hosts: nodes
   serial: 1
   tasks:
+  - name: Create inventory groups from openshift node gorup name
+    group_by:
+      key: "{{ openshift_node_group_name }}"
+    tags: always
+
   - name: SDN 4789
     import_role:
       name: ocp-flow-tester
@@ -11,10 +16,22 @@
       test_protocol: udp
       destination_hosts: "{{ ansible_play_hosts_all }}"
 
-- name: Test nodes to masters flows
-  hosts: nodes:!masters
-  serial: 1
-  tasks:
+  - name: Prometheus API
+    import_role:
+      name: ocp-flow-tester
+    vars:
+      test_port: 9090
+      test_protocol: tcp
+      destination_hosts: "{{ ansible_play_hosts_all }}"
+
+  - name: Prometheus Node-Exporter
+    import_role:
+      name: ocp-flow-tester
+    vars:
+      test_port: 9100
+      test_protocol: tcp
+      destination_hosts: "{{ ansible_play_hosts_all }}"
+
   - name: Api port
     import_role:
       name: ocp-flow-tester
@@ -22,6 +39,11 @@
       test_port: "{{ openshift_master_api_port | default('8443') }}"
       test_protocol: tcp
       destination_hosts: "{{ groups['masters'] }}"
+
+- name: Test nodes to masters flows
+  hosts: nodes:!masters
+  serial: 1
+  tasks:
   - name: Dnsmasq port
     import_role:
       name: ocp-flow-tester
@@ -68,6 +90,14 @@
       test_protocol: tcp
       destination_hosts: "{{ groups['masters'] }}"
     when: groups['nfs'] is defined
+
+  - name: Kubernetes cAdvisor from masters
+    import_role:
+      name: ocp-flow-tester
+    vars:
+      test_port: 10250
+      test_protocol: tcp
+      destination_hosts: "{{ groups['nodes'] }}"
 
 - name: Test etcd ports
   hosts: etcd
@@ -119,3 +149,39 @@
       test_port: 10250
       test_protocol: tcp
       destination_hosts: "{{ groups['masters'] }}"
+
+- name: Test flows on infra nodes
+  hosts: node_config_infra
+  serial: 1
+  tasks:
+  - name: Elasticsearch API
+    import_role:
+      name: ocp-flow-tester
+    vars:
+      test_port: 9200
+      test_protocol: tcp
+      destination_hosts: "{{ groups['node_config_infra'] }}"
+
+  - name: Elasticsearch inter-cluster
+    import_role:
+      name: ocp-flow-tester
+    vars:
+      test_port: 9300
+      test_protocol: tcp
+      destination_hosts: "{{ groups['node_config_infra'] }}"
+
+  - name: Kubernetes cAdvisor from infra nodes
+    import_role:
+      name: ocp-flow-tester
+    vars:
+      test_port: 10250
+      test_protocol: tcp
+      destination_hosts: "{{ groups['nodes'] }}"
+
+  - name: Template router statistics
+    import_role:
+      name: ocp-flow-tester
+    vars:
+      test_port: 1036
+      test_protocol: tcp
+      destination_hosts: "{{ groups['node_config_infra'] }}"
