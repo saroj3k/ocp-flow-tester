@@ -16,6 +16,7 @@
 
 - name: Display results
   hosts: localhost
+  tags: always
   tasks:
   - name: Successfull checks
     debug:
